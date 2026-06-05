@@ -21,12 +21,14 @@ namespace SocialValley
         
         // API Keys por proveedor
         public string Player2ApiKey { get; set; } = "";
+        public string OllamaApiKey { get; set; } = "";
         public string OpenRouterApiKey { get; set; } = "";
         public string GoogleApiKey { get; set; } = "";
         public string OpenAIApiKey { get; set; } = "";
         
         // Modelos seleccionados por proveedor
         public string Player2SelectedModel { get; set; } = "";
+        public string OllamaSelectedModel { get; set; } = "";
         public string OpenRouterSelectedModel { get; set; } = "";
         public string GoogleSelectedModel { get; set; } = "gemini-1.5-flash";
         public string OpenAISelectedModel { get; set; } = "gpt-4o-mini";
@@ -269,6 +271,9 @@ namespace SocialValley
                 case AIProvider.OpenRouter:
                     config.OpenRouterApiKey = apiKey;
                     break;
+                case AIProvider.Ollama:
+                    config.OllamaApiKey = apiKey;
+                    break;
                 case AIProvider.Google:
                     config.GoogleApiKey = apiKey;
                     break;
@@ -285,6 +290,7 @@ namespace SocialValley
             return provider switch
             {
                 AIProvider.Player2 => config.Player2SelectedModel,
+                AIProvider.Ollama => config.OllamaSelectedModel,
                 AIProvider.OpenRouter => config.OpenRouterSelectedModel,
                 AIProvider.Google => config.GoogleSelectedModel,
                 AIProvider.OpenAI => config.OpenAISelectedModel,
@@ -298,6 +304,9 @@ namespace SocialValley
             {
                 case AIProvider.Player2:
                     config.Player2SelectedModel = model;
+                    break;
+                case AIProvider.Ollama:
+                    config.OllamaSelectedModel = model;
                     break;
                 case AIProvider.OpenRouter:
                     config.OpenRouterSelectedModel = model;

@@ -22,7 +22,7 @@ namespace SocialValley
         private const string Player2WebApiUrl = "https://api.player2.game/v1";
         
         // ===== CONTANTS OLLAMA =====
-        private const string OllamaUrl = "http://localhost:11434/api/v1/chat/completions";
+        private const string OllamaUrl = "http://localhost:11434/api/chat";
 
         // ===== ESTADO DE PLAYER2 LOCAL (estático para compartir entre instancias) =====
         private static string? localPlayer2Key = null;
@@ -250,7 +250,7 @@ namespace SocialValley
                 {
                     monitor.Log("Using Ollama local API", LogLevel.Debug);
                     totalAPICallsThisSession++;
-                    return await CallOllamaAPI(npc, prompt);
+                    return await CallOllamaAPI(npc, prompt, configManager.GetCurrentModel());
                 }
                 
                 // ===== OTROS PROVEEDORES =====
@@ -370,7 +370,7 @@ namespace SocialValley
         {
             try
             {
-                var endpoint = OllamaUrl;
+                var endpoint = AIProvider.Ollama.GetEndpointUrl();
                 var requestData = new
                 {
                     model,
@@ -386,8 +386,12 @@ namespace SocialValley
                 {
                     Content = new StringContent(JsonConvert.SerializeObject(requestData), Encoding.UTF8, "application/json")
                 };
+                this.monitor.Log($"Sending request to Ollama API at {endpoint} with model '{model}'", LogLevel.Debug);
+                this.monitor.Log($"Ollama request payload: {JsonConvert.SerializeObject(requestData)}", LogLevel.Trace);
 
                 var response = await httpClient.SendAsync(request);
+                this.monitor.Log($"Received response from Ollama API with status code {response.StatusCode}", LogLevel.Debug);
+                this.monitor.Log($"Ollama raw response: {await response.Content.ReadAsStringAsync()}", LogLevel.Trace);
                 if (response.IsSuccessStatusCode)
                     return ParseOllamaFormatResponse(await response.Content.ReadAsStringAsync());
 
@@ -866,10 +870,7 @@ DISLIKES:
                 var response = await httpClient.GetAsync(AIProvider.Ollama.GetListModelsUrl());
                 if (response.IsSuccessStatusCode)
                 {
-                    this.monitor.Log("Successfully fetched Ollama models list", LogLevel.Debug);
-                    this.monitor.Log($"Ollama models raw response: {await response.Content.ReadAsStringAsync()}", LogLevel.Trace);
                     var jsonObj = JObject.Parse(await response.Content.ReadAsStringAsync());
-                    this.monitor.Log($"Ollama models response: {jsonObj.ToString().Substring(0, Math.Min(500, jsonObj.ToString().Length))}", LogLevel.Debug);
                     foreach (var model in jsonObj["models"] ?? new JArray())
                     {
                         var name = model["name"]?.ToString();
