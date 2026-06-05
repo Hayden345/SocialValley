@@ -867,7 +867,7 @@ DISLIKES:
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonObj = JArray.Parse(await response.Content.ReadAsStringAsync());
-                    foreach (var model in jsonObj)
+                    foreach (var model in jsonObj["models"] ?? new JArray())
                     {
                         var name = model["name"]?.ToString();
                         if (!string.IsNullOrEmpty(name))
