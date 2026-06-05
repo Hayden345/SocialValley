@@ -866,7 +866,10 @@ DISLIKES:
                 var response = await httpClient.GetAsync(AIProvider.Ollama.GetListModelsUrl());
                 if (response.IsSuccessStatusCode)
                 {
-                    var jsonObj = JArray.Parse(await response.Content.ReadAsStringAsync());
+                    this.monitor.Log("Successfully fetched Ollama models list", LogLevel.Debug);
+                    this.monitor.Log($"Ollama models raw response: {await response.Content.ReadAsStringAsync()}", LogLevel.Trace);
+                    var jsonObj = JObject.Parse(await response.Content.ReadAsStringAsync());
+                    this.monitor.Log($"Ollama models response: {jsonObj.ToString().Substring(0, Math.Min(500, jsonObj.ToString().Length))}", LogLevel.Debug);
                     foreach (var model in jsonObj["models"] ?? new JArray())
                     {
                         var name = model["name"]?.ToString();
