@@ -21,6 +21,9 @@ namespace SocialValley
         private const string LocalPlayer2Url = "http://localhost:4315";
         private const string Player2WebApiUrl = "https://api.player2.game/v1";
         
+        // ===== CONTANTS OLLAMA =====
+        private const string OllamaUrl = "http://localhost:11434/api/v1/chat/completions";
+
         // ===== ESTADO DE PLAYER2 LOCAL (estático para compartir entre instancias) =====
         private static string? localPlayer2Key = null;
         private static DateTime lastLocalCheck = DateTime.MinValue;
@@ -242,6 +245,13 @@ namespace SocialValley
                     // 3. Sin configuración
                     return "(!) Player2 not configured. Open the Player2 app or sign in via Settings.";
                 }
+
+                if (provider == AIProvider.Ollama)
+                {
+                    monitor.Log("Using Ollama local API", LogLevel.Debug);
+                    totalAPICallsThisSession++;
+                    return await CallOllamaAPI(npc, prompt);
+                }
                 
                 // ===== OTROS PROVEEDORES =====
                 var apiKey = configManager.GetCurrentApiKey();
@@ -352,6 +362,53 @@ namespace SocialValley
                     localDetectionStatusMessage = "Connection lost";
                 }
                 return "[Error] Player2: Unexpected error. Check the SMAPI log for details.";
+            }
+        }
+
+        // ===== OLLAMA API =====
+        private async Task<string> CallOllamaAPI(StardewValley.NPC npc, string prompt, string model = "default")
+        {
+            try
+            {
+                var endpoint = OllamaUrl;
+                var requestData = new
+                {
+                    model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = GetNPCSystemPrompt(npc) },
+                        new { role = "user", content = prompt }
+                    },
+                    stream = false
+                };
+
+                var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(JsonConvert.SerializeObject(requestData), Encoding.UTF8, "application/json")
+                };
+
+                var response = await httpClient.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                    return ParseOllamaFormatResponse(await response.Content.ReadAsStringAsync());
+
+                var error = await response.Content.ReadAsStringAsync();
+                monitor.Log($"Ollama API error: {response.StatusCode} - {error}", LogLevel.Warn);
+                return (int)response.StatusCode switch
+                {
+                    400 => "[Error] Ollama: Bad request — your model may be invalid. Try a different model in Settings.",
+                    429 => "(!) Ollama: Rate limit reached. Wait a moment before trying again.",
+                    _   => $"[Error] Ollama error ({(int)response.StatusCode}). Check the SMAPI log for details."
+                };
+            }
+            catch (TaskCanceledException)
+            {
+                monitor.Log($"Ollama API timeout after {httpClient.Timeout.TotalSeconds}s", LogLevel.Warn);
+                return "[Timeout] Ollama took too long to respond. Try again in a moment.";
+            }
+            catch (Exception ex)
+            {
+                monitor.Log($"Ollama API exception: {ex.Message}", LogLevel.Error);
+                return "[Error] Ollama: Connection error. Check the SMAPI log for details.";
             }
         }
 
@@ -526,6 +583,30 @@ namespace SocialValley
             catch (Exception ex)
             {
                 monitor.Log($"Failed to parse response: {ex.Message}", LogLevel.Error);
+                return "[Error] Failed to parse AI response";
+            }
+        }
+
+        private string ParseOllamaFormatResponse(string jsonResponse)
+        {
+            try
+            {
+                var jsonObj = JObject.Parse(jsonResponse);
+                var message = jsonObj["message"];
+                if (message != null && message.HasValues)
+                {
+                    var content = message["content"]?.ToString();
+                    if (!string.IsNullOrEmpty(content))
+                        return CleanResponse(content);
+                }
+
+                var topLevelKeys = string.Join(", ", jsonObj.Properties().Select(p => p.Name));
+                monitor.Log($"Unexpected Ollama response format. Top-level keys: [{topLevelKeys}]. Response: {jsonResponse.Substring(0, Math.Min(500, jsonResponse.Length))}", LogLevel.Warn);
+                return "[Error] Unexpected response format";
+            }
+            catch (Exception ex)
+            {
+                monitor.Log($"Failed to parse Ollama response: {ex.Message}", LogLevel.Error);
                 return "[Error] Failed to parse AI response";
             }
         }
@@ -738,6 +819,7 @@ DISLIKES:
                 return provider switch
                 {
                     AIProvider.OpenRouter => await FetchOpenRouterModels(apiKey),
+                    AIProvider.Ollama => await FetchOllamaModels(), // Ollama doesn't require API key for local model listing
                     AIProvider.Google => await FetchGoogleModels(apiKey),
                     AIProvider.OpenAI => await FetchOpenAIModels(apiKey),
                     AIProvider.Player2 => new List<AIModelInfo>(),
@@ -773,6 +855,27 @@ DISLIKES:
                 }
             }
             catch (Exception ex) { monitor.Log($"Error fetching OpenRouter models: {ex.Message}", LogLevel.Error); }
+            return models;
+        }
+
+        private async Task<List<AIModelInfo>> FetchOllamaModels()
+        {
+            var models = new List<AIModelInfo>();
+            try
+            {
+                var response = await httpClient.GetAsync(AIProvider.Ollama.GetListModelsUrl());
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonObj = JArray.Parse(await response.Content.ReadAsStringAsync());
+                    foreach (var model in jsonObj)
+                    {
+                        var name = model["name"]?.ToString();
+                        if (!string.IsNullOrEmpty(name))
+                            models.Add(new AIModelInfo(name, name));
+                    }
+                }
+            }
+            catch (Exception ex) { monitor.Log($"Error fetching Ollama models: {ex.Message}", LogLevel.Error); }
             return models;
         }
 

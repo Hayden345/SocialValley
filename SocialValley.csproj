@@ -3,7 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>SocialValley</AssemblyName>
     <RootNamespace>SocialValley</RootNamespace>
-    <GamePath>D:\Stardew Valley</GamePath>
+    <GamePath>F:\SteamLibrary\steamapps\common\Stardew Valley</GamePath>
      <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -162,7 +162,7 @@ namespace SocialValley
             int rightColumnX = xPositionOnScreen + 380;
             int currentY = yPositionOnScreen + 140;
             
-            var providers = new[] { AIProvider.Player2, AIProvider.OpenRouter, AIProvider.Google, AIProvider.OpenAI };
+            var providers = new[] { AIProvider.Player2, AIProvider.Ollama, AIProvider.OpenRouter, AIProvider.Google, AIProvider.OpenAI };
             foreach (var provider in providers)
             {
                 providerOptions.Add(new ClickableComponent(

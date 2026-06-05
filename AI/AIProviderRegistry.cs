@@ -5,6 +5,7 @@ namespace SocialValley
     public enum AIProvider
     {
         Player2,
+        Ollama,
         OpenRouter,
         Google,
         OpenAI,
@@ -30,6 +31,15 @@ namespace SocialValley
                     Label = "Player2",
                     EndpointUrl = "https://api.player2.game/v1/chat/completions",
                     RequiresApiKey = true
+                }
+            },
+            {
+                AIProvider.Ollama, new ProviderDef
+                {
+                    Label = "Ollama",
+                    EndpointUrl = "http://localhost:11434/api/chat",
+                    ListModelsUrl = "http://localhost:11434/api/tags",
+                    RequiresApiKey = false
                 }
             },
             {
