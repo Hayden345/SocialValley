@@ -335,7 +335,7 @@ namespace SocialValley
             {
                 return !string.IsNullOrEmpty(apiKey);
             }
-            
+
             // Ollama requires no API key, but does require model selection
             if (provider == AIProvider.Ollama)
             {

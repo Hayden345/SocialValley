@@ -395,7 +395,7 @@ namespace SocialValley
                 if (selectedProvider.RequiresApiKey()) {
                     isEditingApiKey = true;
                     isEditingModelSearch = false;
-                Game1.keyboardDispatcher.Subscriber = new APIKeyTextReceiver(this);
+                    Game1.keyboardDispatcher.Subscriber = new APIKeyTextReceiver(this);
                     Game1.playSound("smallSelect");
                 }
                 return;
@@ -834,7 +834,7 @@ namespace SocialValley
             else if (!selectedProvider.RequiresApiKey()) DrawNoApiKeyProviderSection(b, rightColumnX, ref currentY);
             else DrawStandardProviderSection(b, rightColumnX, ref currentY);
         }
-        
+
         private void DrawNoApiKeyProviderSection(SpriteBatch b, int rightColumnX, ref int currentY)
         {
             apiKeyInputBox = null;

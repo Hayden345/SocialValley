@@ -56,10 +56,34 @@ namespace SocialValley
         private bool isEditMode = false;
         private List<MessageActionButtons> messageActionButtons = new List<MessageActionButtons>();
         
-        // Visual properties
-        private readonly int chatWidth = 750;
-        private readonly int chatHeight = 800;
-        private readonly int inputHeight = 40;
+        // Visual properties - Dynamic responsive sizing
+        private int _lastViewportWidth = 0;
+        private int _lastViewportHeight = 0;
+        
+        private static int chatWidth
+        {
+            get
+            {
+                return (int)Math.Max(600, (int)(Game1.uiViewport.Width * 0.5f));
+            }
+        }
+        
+        private static int chatHeight
+        {
+            get
+            {
+                return (int)Math.Max(600, (int)(Game1.uiViewport.Height * 0.9f));
+            }
+        }
+        
+        private static int inputHeight
+        {
+            get
+            {
+                return 120;
+            }
+        }
+        
         private readonly int messageSpacing = 4;
         private readonly int maxChatMessages = 50;
         private readonly int portraitSize = 64;
@@ -79,12 +103,16 @@ namespace SocialValley
         
         //  CONSTRUCTOR ACTUALIZADO: Acepta UnifiedAIClient
         public ChatUI(IMonitor monitor, UnifiedAIClient aiClient, NPC npc)
-            : base((Game1.uiViewport.Width - 700) / 2, (Game1.uiViewport.Height - 550) / 2, 700, 550)
+            : base((Game1.uiViewport.Width - chatWidth) / 2, (Game1.uiViewport.Height - chatHeight) / 2, chatWidth, chatHeight)
         {
             this.monitor = monitor;
             this.aiClient = aiClient;
             this.npc = npc;
             this.chatHistory = new List<ChatMessage>();
+            
+            // Store current viewport size for resize detection
+            _lastViewportWidth = Game1.uiViewport.Width;
+            _lastViewportHeight = Game1.uiViewport.Height;
 
             monitor.Log($"ChatUI constructor called for {npc.Name}", LogLevel.Info);
 
@@ -557,6 +585,13 @@ Instructions for {npc.Name}:
         public override void update(GameTime time)
         {
             base.update(time);
+            
+            // Check if viewport size changed and recenter if needed
+            if (Game1.uiViewport.Width != _lastViewportWidth || Game1.uiViewport.Height != _lastViewportHeight)
+            {
+                gameWindowSizeChanged(new Rectangle(xPositionOnScreen, yPositionOnScreen, chatWidth, chatHeight),
+                                     new Rectangle(xPositionOnScreen, yPositionOnScreen, chatWidth, chatHeight));
+            }
 
             previousKeyboardState = currentKeyboardState;
             currentKeyboardState = Keyboard.GetState();
@@ -653,17 +688,7 @@ Instructions for {npc.Name}:
             if (currentInput.Length < 500)
             {
                 currentInput += inputChar;
-                
-                var inputWidth = inputBox?.bounds.Width - 16 ?? 400;
-                if (Game1.smallFont.MeasureString(currentInput).X > inputWidth)
-                {
-                    var totalWidth = Game1.smallFont.MeasureString(currentInput).X;
-                    inputScrollOffset = Math.Max(0, (int)(totalWidth - inputWidth));
-                }
-                else
-                {
-                    inputScrollOffset = 0;
-                }
+                inputScrollOffset = 0;
             }
         }
 
@@ -690,18 +715,7 @@ Instructions for {npc.Name}:
             if (currentInput.Length > 0)
             {
                 currentInput = currentInput.Substring(0, currentInput.Length - 1);
-                
-                var inputWidth = inputBox?.bounds.Width - 16 ?? 400;
-                var textWidth = Game1.smallFont.MeasureString(currentInput).X;
-                
-                if (textWidth <= inputWidth)
-                {
-                    inputScrollOffset = 0;
-                }
-                else
-                {
-                    inputScrollOffset = Math.Max(0, (int)(textWidth - inputWidth));
-                }
+                inputScrollOffset = 0;
             }
         }
 
@@ -1283,6 +1297,107 @@ RESPONSE STYLE:
             return lines.Count > 0 ? lines : new List<string> { text };
         }
 
+        private List<string> WrapTextForInput(string text, int maxWidth, SpriteFont? font = null)
+        {
+            if (font == null) font = Game1.smallFont;
+            var lines = new List<string>();
+            if (string.IsNullOrEmpty(text))
+            {
+                lines.Add("");
+                return lines;
+            }
+
+            var paragraphs = text.Split('\n');
+
+            foreach (var paragraph in paragraphs)
+            {
+                if (string.IsNullOrEmpty(paragraph))
+                {
+                    lines.Add("");
+                    continue;
+                }
+
+                if (FontManager.ContainsCJKCharacters(paragraph))
+                {
+                    var currentCJKLine = "";
+                    foreach (char ch in paragraph)
+                    {
+                        var testLine = currentCJKLine + ch;
+                        if (font.MeasureString(testLine).X > maxWidth && currentCJKLine.Length > 0)
+                        {
+                            lines.Add(currentCJKLine);
+                            currentCJKLine = ch.ToString();
+                        }
+                        else
+                        {
+                            currentCJKLine = testLine;
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(currentCJKLine))
+                        lines.Add(currentCJKLine);
+                    continue;
+                }
+
+                var words = paragraph.Split(' ');
+                var currentLine = "";
+
+                foreach (var word in words)
+                {
+                    var testLine = string.IsNullOrEmpty(currentLine) ? word : currentLine + " " + word;
+                    var testWidth = font.MeasureString(testLine).X;
+
+                    if (testWidth > maxWidth && !string.IsNullOrEmpty(currentLine))
+                    {
+                        lines.Add(currentLine);
+                        currentLine = word;
+
+                        while (font.MeasureString(currentLine).X > maxWidth && currentLine.Length > 1)
+                        {
+                            int breakPoint = currentLine.Length - 1;
+
+                            for (int i = currentLine.Length - 1; i > 0; i--)
+                            {
+                                if (currentLine[i] == '-' || currentLine[i] == '.' || currentLine[i] == ',')
+                                {
+                                    breakPoint = i + 1;
+                                    break;
+                                }
+                            }
+
+                            if (breakPoint == currentLine.Length - 1)
+                            {
+                                while (breakPoint > 0 && font.MeasureString(currentLine.Substring(0, breakPoint)).X > maxWidth)
+                                {
+                                    breakPoint--;
+                                }
+                            }
+
+                            if (breakPoint > 0)
+                            {
+                                lines.Add(currentLine.Substring(0, breakPoint));
+                                currentLine = currentLine.Substring(breakPoint);
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        currentLine = testLine;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(currentLine))
+                {
+                    lines.Add(currentLine);
+                }
+            }
+
+            return lines.Count > 0 ? lines : new List<string> { text };
+        }
+
         private void DrawSettingsButton(SpriteBatch b)
         {
             if (settingsButton == null) return;
@@ -1420,51 +1535,33 @@ RESPONSE STYLE:
                 inputBox.bounds.X, inputBox.bounds.Y, inputBox.bounds.Width, inputBox.bounds.Height,
                 inputBackgroundColor);
 
-            string displayText = currentInput;
-            if (Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 < 500)
+            SpriteFont fontToUse = FontManager.GetFontForText(currentInput);
+            var inputWidth = inputBox.bounds.Width - 16;
+            var wrappedLines = WrapTextForInput(currentInput, inputWidth, fontToUse);
+            var lineHeight = fontToUse.LineSpacing + 2;
+            const int maxLines = 3;
+            var firstVisibleLine = Math.Max(0, wrappedLines.Count - maxLines);
+
+            for (int i = firstVisibleLine; i < wrappedLines.Count; i++)
             {
-                displayText += "|";
-            }
-
-            SpriteFont fontToUse = FontManager.GetFontForText(displayText);
-            bool isCJK = FontManager.ContainsCJKCharacters(displayText);
-
-            string visibleText = displayText;
-            if (inputScrollOffset > 0)
-            {
-                var textWidth = fontToUse.MeasureString(displayText).X;
-                var inputWidth = inputBox.bounds.Width - 16;
-
-                if (textWidth > inputWidth)
+                var line = wrappedLines[i];
+                if (i == wrappedLines.Count - 1 && Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 < 500)
                 {
-                    if (isCJK)
-                    {
-                        var charsToSkip = Math.Min(inputScrollOffset / 20, displayText.Length - 1);
-                        visibleText = displayText.Substring(Math.Max(0, charsToSkip));
-                    }
-                    else
-                    {
-                        var charWidth = textWidth / displayText.Length;
-                        var charsToSkip = (int)(inputScrollOffset / charWidth);
-
-                        if (charsToSkip < displayText.Length)
-                        {
-                            visibleText = displayText.Substring(Math.Max(0, charsToSkip));
-                        }
-                    }
+                    line += "|";
                 }
-            }
 
-            try
-            {
-                b.DrawString(fontToUse, visibleText,
-                    new Vector2(inputBox.bounds.X + 8, inputBox.bounds.Y + 8),
-                    textColor);
-            }
-            catch
-            {
-                Utility.drawTextWithShadow(b, visibleText, Game1.smallFont,
-                    new Vector2(inputBox.bounds.X + 8, inputBox.bounds.Y + 8), textColor);
+                try
+                {
+                    b.DrawString(fontToUse, line,
+                        new Vector2(inputBox.bounds.X + 8, inputBox.bounds.Y + 8 + (i - firstVisibleLine) * lineHeight),
+                        textColor);
+                }
+                catch
+                {
+                    Utility.drawTextWithShadow(b, line, Game1.smallFont,
+                        new Vector2(inputBox.bounds.X + 8, inputBox.bounds.Y + 8 + (i - firstVisibleLine) * lineHeight),
+                        textColor);
+                }
             }
 
             string clearText = ModEntry.LanguageManager?.GetLocalizedUIText("clear_button") ?? "Clear";
@@ -1726,8 +1823,17 @@ RESPONSE STYLE:
 
         public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
         {
+            _lastViewportWidth = Game1.uiViewport.Width;
+            _lastViewportHeight = Game1.uiViewport.Height;
+            
+            // Recenter window based on new dimensions
             xPositionOnScreen = (Game1.uiViewport.Width - chatWidth) / 2;
             yPositionOnScreen = (Game1.uiViewport.Height - chatHeight) / 2;
+            
+            // Update the window base dimensions
+            width = chatWidth;
+            height = chatHeight;
+            
             InitializeComponents();
         }
     }
