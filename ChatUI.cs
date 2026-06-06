@@ -700,7 +700,7 @@ Instructions for {npc.Name}:
             int visibleHeight = chatBox.bounds.Height;
             int maxScroll = Math.Max(0, totalMessageHeight - visibleHeight);
             
-            int scrollAmount = direction * 60;
+            int scrollAmount = direction * 1;
             targetScrollOffset = Math.Max(0, Math.Min(maxScroll, targetScrollOffset - scrollAmount));
         }
 
