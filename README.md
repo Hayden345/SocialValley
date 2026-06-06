@@ -37,6 +37,15 @@ AI-powered conversations with Stardew Valley NPCs. Talk naturally with the chara
 3. Launch Stardew Valley — the mod will detect the app automatically
 4. Alternatively, click **Sign in with Player2 Account** in the mod's Settings menu to generate an API key without the desktop app
 
+### Using Ollama (advanced - fully local)
+1. Download and install the [Ollama desktop app](https://ollama.com/download)
+2. Download a local chat model. I recommend using a .gguf file type as these are safer than alternatives.
+3. Move the model file to a directory, and create a file called 'Modelfile' (ensure there is no file extension). Open this file in notepad and enter 'FROM model_file_name.gguf', save and exit. This accepts paths if the Modelfile is located in a different directory to the model data files.
+4. Open a terminal window, and navigate to the location the Modelfile is in, and run 'ollama create your-model-name', replacing your-model-name with the name you want to call this model.
+5. Launch Stardew Valley. Open a chat window with any NPC, click **Config** → go to the **AI Provider** tab
+6. Select Ollama, test the connection, and fetch models. If the connection fails, check Ollama is running in the background.
+7. Select your model, and save
+
 ### Using other providers (OpenRouter, Gemini, OpenAI)
 1. Open the chat window with any NPC
 2. Click **Config** → go to the **AI Provider** tab

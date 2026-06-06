@@ -392,9 +392,13 @@ namespace SocialValley
             
             if (apiKeyInputBox != null && apiKeyInputBox.containsPoint(x, y))
             {
-                isEditingApiKey = true; isEditingModelSearch = false;
+                if (selectedProvider.RequiresApiKey()) {
+                    isEditingApiKey = true;
+                    isEditingModelSearch = false;
                 Game1.keyboardDispatcher.Subscriber = new APIKeyTextReceiver(this);
-                Game1.playSound("smallSelect"); return;
+                    Game1.playSound("smallSelect");
+                }
+                return;
             }
             if (modelSearchBox != null && modelSearchBox.containsPoint(x, y))
             {
@@ -542,7 +546,11 @@ namespace SocialValley
         private async void TestConnection()
         {
             if (selectedProvider == AIProvider.Player2) { DetectPlayer2App(); return; }
-            if (string.IsNullOrEmpty(currentApiKey)) { connectionStatus = "(!) Please enter an API key first"; Game1.playSound("cancel"); return; }
+            if (selectedProvider.RequiresApiKey() && string.IsNullOrEmpty(currentApiKey)) {
+                connectionStatus = "(!) Please enter an API key first";
+                Game1.playSound("cancel");
+                return;
+            }
             isTestingConnection = true; connectionStatus = " Testing connection..."; Game1.playSound("smallSelect");
             await Task.Run(async () =>
             {
@@ -567,8 +575,8 @@ namespace SocialValley
         
         private async void FetchModels()
         {
-            if (string.IsNullOrEmpty(currentApiKey)) { connectionStatus = "(!) Please enter an API key first"; Game1.playSound("cancel"); return; }
             if (selectedProvider == AIProvider.Player2) { connectionStatus = "(i) Player2 uses its default model"; Game1.playSound("cancel"); return; }
+            if (selectedProvider.RequiresApiKey() && string.IsNullOrEmpty(currentApiKey)) { connectionStatus = "(!) Please enter an API key first"; Game1.playSound("cancel"); return; }
             isFetchingModels = true; connectionStatus = " Fetching models..."; Game1.playSound("smallSelect");
             await Task.Run(async () =>
             {
@@ -823,7 +831,115 @@ namespace SocialValley
             }
             int currentY = yPositionOnScreen + 125;
             if (selectedProvider == AIProvider.Player2) DrawPlayer2Section(b, rightColumnX, ref currentY);
+            else if (!selectedProvider.RequiresApiKey()) DrawNoApiKeyProviderSection(b, rightColumnX, ref currentY);
             else DrawStandardProviderSection(b, rightColumnX, ref currentY);
+        }
+        
+        private void DrawNoApiKeyProviderSection(SpriteBatch b, int rightColumnX, ref int currentY)
+        {
+            apiKeyInputBox = null;
+            Utility.drawTextWithShadow(b, "This provider does not require an API key.", Game1.smallFont,
+                new Vector2(rightColumnX, currentY), new Color(200, 200, 200));
+            currentY += 24;
+
+            if (testConnectionButton != null)
+            {
+                testConnectionButton = new ClickableTextureComponent(new Rectangle(rightColumnX, currentY, 220, 42), null, Rectangle.Empty, 1f);
+                Color buttonColor = isTestingConnection ? Color.Gray : new Color(100, 150, 200);
+                IClickableMenu.drawTextureBox(b, Game1.menuTexture, new Rectangle(0, 256, 60, 60),
+                    testConnectionButton.bounds.X, testConnectionButton.bounds.Y, testConnectionButton.bounds.Width, testConnectionButton.bounds.Height, buttonColor * 0.8f);
+                string buttonText = isTestingConnection ? "Testing..." : "Test Connection";
+                Vector2 textSize = Game1.smallFont.MeasureString(buttonText);
+                Utility.drawTextWithShadow(b, buttonText, Game1.smallFont,
+                    new Vector2(testConnectionButton.bounds.X + (testConnectionButton.bounds.Width - textSize.X) / 2,
+                            testConnectionButton.bounds.Y + (testConnectionButton.bounds.Height - textSize.Y) / 2), Color.White);
+            }
+            if (fetchModelsButton != null)
+            {
+                fetchModelsButton = new ClickableTextureComponent(new Rectangle(rightColumnX + 230, currentY, 230, 42), null, Rectangle.Empty, 1f);
+                Color buttonColor = isFetchingModels ? Color.Gray : new Color(100, 200, 150);
+                IClickableMenu.drawTextureBox(b, Game1.menuTexture, new Rectangle(0, 256, 60, 60),
+                    fetchModelsButton.bounds.X, fetchModelsButton.bounds.Y, fetchModelsButton.bounds.Width, fetchModelsButton.bounds.Height, buttonColor * 0.8f);
+                string buttonText = isFetchingModels ? "Fetching..." : "Fetch Models";
+                Vector2 textSize = Game1.smallFont.MeasureString(buttonText);
+                Utility.drawTextWithShadow(b, buttonText, Game1.smallFont,
+                    new Vector2(fetchModelsButton.bounds.X + (fetchModelsButton.bounds.Width - textSize.X) / 2,
+                            fetchModelsButton.bounds.Y + (fetchModelsButton.bounds.Height - textSize.Y) / 2), Color.White);
+            }
+            currentY = (testConnectionButton?.bounds.Y ?? currentY) + 60;
+
+            if (!string.IsNullOrEmpty(connectionStatus))
+            {
+                Color lineColor = connectionStatus.StartsWith("") ? Color.LightGreen : connectionStatus.StartsWith("[Error]") ? new Color(255, 120, 120) : Color.LightBlue;
+                string truncated = connectionStatus.Length > 60 ? connectionStatus.Substring(0, 57) + "..." : connectionStatus;
+                Utility.drawTextWithShadow(b, truncated, Game1.smallFont, new Vector2(rightColumnX, currentY), lineColor);
+            }
+            currentY += 30;
+
+            Utility.drawTextWithShadow(b, "Model Search:", Game1.smallFont, new Vector2(rightColumnX, currentY), Color.Yellow);
+            currentY += 25;
+            if (modelSearchBox != null)
+            {
+                modelSearchBox = new ClickableTextureComponent(new Rectangle(rightColumnX, currentY, 460, 45), null, Rectangle.Empty, 1f);
+                IClickableMenu.drawTextureBox(b, Game1.menuTexture, new Rectangle(0, 256, 60, 60),
+                    modelSearchBox.bounds.X, modelSearchBox.bounds.Y, modelSearchBox.bounds.Width, modelSearchBox.bounds.Height,
+                    isEditingModelSearch ? new Color(100, 200, 100) : new Color(60, 60, 60));
+                string searchDisplay = string.IsNullOrEmpty(modelSearchText) ? (isEditingModelSearch ? "|" : "Search models...") :
+                    (isEditingModelSearch ? modelSearchText + "|" : modelSearchText);
+                if (searchDisplay.Length > 55) searchDisplay = searchDisplay.Substring(0, 52) + "...";
+                Utility.drawTextWithShadow(b, searchDisplay, Game1.smallFont,
+                    new Vector2(modelSearchBox.bounds.X + 15, modelSearchBox.bounds.Y + 13),
+                    isEditingModelSearch ? Color.Yellow : Color.White);
+            }
+            currentY = (modelSearchBox?.bounds.Y ?? currentY) + 60;
+            Utility.drawTextWithShadow(b, "Available Models:", Game1.smallFont, new Vector2(rightColumnX, currentY), Color.Yellow);
+            currentY += 25;
+            if (modelScrollUpButton != null)
+            {
+                modelScrollUpButton = new ClickableTextureComponent(new Rectangle(rightColumnX + 465, currentY, 35, 35), null, Rectangle.Empty, 1f);
+                bool canScrollUp = modelScrollOffset > 0;
+                IClickableMenu.drawTextureBox(b, Game1.menuTexture, new Rectangle(0, 256, 60, 60),
+                    modelScrollUpButton.bounds.X, modelScrollUpButton.bounds.Y, modelScrollUpButton.bounds.Width, modelScrollUpButton.bounds.Height,
+                    canScrollUp ? new Color(100, 100, 100) : new Color(50, 50, 50));
+                Utility.drawTextWithShadow(b, "▲", Game1.smallFont,
+                    new Vector2(modelScrollUpButton.bounds.X + 11, modelScrollUpButton.bounds.Y + 5),
+                    canScrollUp ? Color.White : Color.Gray);
+            }
+            UpdateModelOptions();
+            foreach (var option in modelOptions)
+            {
+                bool isSelected = option.name == currentModel;
+                Color bgColor = isSelected ? new Color(50, 100, 50, 200) : new Color(60, 60, 60, 200);
+                b.Draw(Game1.fadeToBlackRect, option.bounds, bgColor);
+                if (isSelected) DrawBorder(b, option.bounds, Color.Green, 2);
+                string displayText = option.label ?? option.name;
+                if (displayText.Length > 55) displayText = displayText.Substring(0, 52) + "...";
+                Utility.drawTextWithShadow(b, displayText, Game1.smallFont,
+                    new Vector2(option.bounds.X + 12, option.bounds.Y + 8),
+                    isSelected ? Color.Green : Color.White);
+            }
+            if (modelScrollDownButton != null && modelScrollUpButton != null)
+            {
+                modelScrollDownButton = new ClickableTextureComponent(
+                    new Rectangle(rightColumnX + 465, modelScrollUpButton.bounds.Y + 190, 35, 35), null, Rectangle.Empty, 1f);
+                var filteredCount = availableModels.Count(m => string.IsNullOrEmpty(modelSearchText) ||
+                    m.Name.Contains(modelSearchText, StringComparison.OrdinalIgnoreCase) ||
+                    m.Id.Contains(modelSearchText, StringComparison.OrdinalIgnoreCase));
+                bool canScrollDown = modelScrollOffset + MAX_VISIBLE_MODELS < filteredCount;
+                IClickableMenu.drawTextureBox(b, Game1.menuTexture, new Rectangle(0, 256, 60, 60),
+                    modelScrollDownButton.bounds.X, modelScrollDownButton.bounds.Y, modelScrollDownButton.bounds.Width, modelScrollDownButton.bounds.Height,
+                    canScrollDown ? new Color(100, 100, 100) : new Color(50, 50, 50));
+                Utility.drawTextWithShadow(b, "▼", Game1.smallFont,
+                    new Vector2(modelScrollDownButton.bounds.X + 11, modelScrollDownButton.bounds.Y + 5),
+                    canScrollDown ? Color.White : Color.Gray);
+                if (!string.IsNullOrEmpty(currentModel))
+                {
+                    string currentModelText = $"Selected: {currentModel}";
+                    if (currentModelText.Length > 60) currentModelText = currentModelText.Substring(0, 57) + "...";
+                    Utility.drawTextWithShadow(b, currentModelText, Game1.smallFont,
+                        new Vector2(rightColumnX, modelScrollDownButton.bounds.Y + 45), Color.LightGreen);
+                }
+            }
         }
         
         private void DrawPlayer2Section(SpriteBatch b, int rightColumnX, ref int currentY)
