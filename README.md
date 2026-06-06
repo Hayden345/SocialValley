@@ -7,7 +7,7 @@ AI-powered conversations with Stardew Valley NPCs. Talk naturally with the chara
 ## Features
 
 - **Natural conversations** with any NPC in Pelican Town
-- **Multiple AI providers** — Player2 (recommended), OpenRouter, Google Gemini, OpenAI
+- **Multiple AI providers** — Player2 (recommended), Ollama (advanced local option), OpenRouter, Google Gemini, OpenAI
 - **Automatic Player2 detection** — just open the Player2 desktop app and the mod connects automatically
 - **In-game sign-in** for Player2 — generate your API key directly without leaving the game
 - **Conversation memory** — NPCs remember what you talked about across sessions
@@ -39,7 +39,7 @@ AI-powered conversations with Stardew Valley NPCs. Talk naturally with the chara
 
 ### Using Ollama (advanced - fully local)
 1. Download and install the [Ollama desktop app](https://ollama.com/download)
-2. Download a local chat model. I recommend using a .gguf file type as these are safer than alternatives.
+2. Download a local chat model. I recommend using a .gguf file type as these are safer than alternatives. For consumer grade hardware (Less than 24GB VRAM), we also recommend using a quantized model to improve performance.
 3. Move the model file to a directory, and create a file called 'Modelfile' (ensure there is no file extension). Open this file in notepad and enter 'FROM model_file_name.gguf', save and exit. This accepts paths if the Modelfile is located in a different directory to the model data files.
 4. Open a terminal window, and navigate to the location the Modelfile is in, and run 'ollama create your-model-name', replacing your-model-name with the name you want to call this model.
 5. Launch Stardew Valley. Open a chat window with any NPC, click **Config** → go to the **AI Provider** tab
